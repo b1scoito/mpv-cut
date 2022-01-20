@@ -12,7 +12,7 @@ Place it inside the Windows mpv scripts folder normally on `%appdata%\mpv\script
 Press the default key `C` to mark the first position, and where you desire to save, on the last position, press `C` again.
 
 ## Settings
-The settings can be changed editing the [script](https://github.com/b1scoito/mpv-cut/blob/main/mpv_cut.lua#L7) file.
+The settings can be changed by editing the [script](https://github.com/b1scoito/mpv-cut/blob/main/mpv_cut.lua#L7) file.
 ```lua
 local settings = {
     key_mark_cut = "c",
