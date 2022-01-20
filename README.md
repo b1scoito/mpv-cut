@@ -34,3 +34,7 @@ local settings = {
 - `video_ext`: The output extension of the video.
 - `web_audio_target_bitrate`: Target audio bitrate for the web cut.
 - `web_video_target_file_size`: Target file size for the web cut.
+
+#### Todo
+- [] Create a "custom arguments" variable for custom user-defined FFmpeg arguments to append to the original command.
+- [] Finish the web file size feature.
