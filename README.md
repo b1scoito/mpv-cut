@@ -3,10 +3,13 @@ A video cutting/clipping/slicing script for mpv
 
 ## Installation
 ### Linux
-Place it inside the Linux mpv scripts folder normally on: `~/.config/mpv/scripts`
+Place it inside the Linux mpv scripts folder normally on: `~/.config/mpv/scripts`, and install the FFmpeg package if not already installed.
+- Ubuntu: `sudo apt install ffmpeg`
+- Arch: `sudo pacman -S ffmpeg` or `yay -S ffmpeg`
 
 ### Windows
-Place it inside the Windows mpv scripts folder normally on `%appdata%\mpv\scripts`
+Place it inside the Windows mpv scripts folder normally on `%appdata%\mpv\scripts`, and install the FFmpeg package if not already installed with [Chocolatey](https://chocolatey.org/install).
+- Chocolatey (open cmd/powershell as admin): `choco install ffmpeg-full` or `cinst ffmpeg-full`
 
 ## Usage
 Press the default key `C` to mark the first position, and where you desire to save, on the last position, press `C` again.
@@ -36,5 +39,5 @@ local settings = {
 - `web_video_target_file_size`: Target file size for the web cut.
 
 #### Todo
-- [] Create a "custom arguments" variable for custom user-defined FFmpeg arguments to append to the original command.
-- [] Finish the web file size feature.
+- [ ] Create a "custom arguments" variable for custom user-defined FFmpeg arguments to append to the original command.
+- [ ] Finish the web file size feature.
