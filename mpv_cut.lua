@@ -10,9 +10,6 @@ local settings = {
 
     -- output video extension
     video_ext = "mp4",
-    
-    -- extract only this selected audio track
-    audio_track_extract = "1",
 
     -- web save settings
     web_audio_target_bitrate = "128", -- kbps
