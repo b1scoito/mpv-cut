@@ -8,6 +8,9 @@ local settings = {
     key_mark_cut = "c",
     video_extension = "mp4",
 
+    -- if you want faster cutting, leave this blank
+    ffmpeg_custom_parameters = "",
+
     web = {
         -- small file settings
         key_mark_cut = "shift+c",
@@ -22,6 +25,8 @@ local vars = {
     filename = nil,
 
     video_duration = nil,
+
+    used_web_mark_pos = nil,
 
     pos = {
         start_pos = nil,
@@ -84,7 +89,31 @@ end
 
 -- #region main
 function ffmpeg_cut(time_start, time_end, input_file, output_file)
-    local status, stdout, stderr = exec({"ffmpeg", "-y", "-ss", time_start, "-to", time_end, "-i", input_file, "-c", "copy", output_file})
+    if string.len(settings.ffmpeg_custom_parameters) > 0 and not vars.used_web_mark_pos then
+        ffmpeg_custom_arguments = {}
+        for substr in settings.ffmpeg_custom_parameters:gmatch("%S+") do
+            table.insert(ffmpeg_custom_arguments, substr)
+        end
+    
+        local arr_start = {"ffmpeg", "-y", "-i", input_file}
+        for _, value in pairs(ffmpeg_custom_arguments) do
+            table.insert(arr_start, value)
+        end
+    
+        local arr_end = {"-ss", time_start, "-to", time_end, output_file}
+        for _, value in pairs(arr_end) do
+            table.insert(arr_start, value)
+        end
+
+        local status, _, _ = exec(arr_start)
+        if status > 0 then
+            return false
+        end
+
+        return true
+    end
+
+    local status, _, _ = exec({"ffmpeg", "-y", "-ss", time_start, "-to", time_end, "-i", input_file, "-c", "copy", output_file})
     if status > 0 then
         return false
     end
@@ -96,8 +125,8 @@ function ffmpeg_resize(input_file, output_file)
     local target_bitrate = (settings.web.video_target_file_size * 8192) / math.floor(vars.video_duration) -- Video bitrate
     target_bitrate = target_bitrate - settings.web.audio_target_bitrate -- Audio bitrate
 
-    if target_bitrate <= 0 then
-        log(msg.error, "Target video bitrate is lower than 0!", 10)
+    if target_bitrate < 0 then
+        log(msg.error, "Target video bitrate is lower than 0! Try making your target file size bigger.", 10)
         return false
     end
 
@@ -105,12 +134,12 @@ function ffmpeg_resize(input_file, output_file)
     log(msg.info, string.format("Target video bitrate: %s.", formatted_target_bitrate))
 
     -- Double pass from https://trac.ffmpeg.org/wiki/Encode/H.264#twopass
-    local status, stdout, stderr = exec({"ffmpeg", "-y", "-i", input_file, "-c:v", "libx264", "-b:v", formatted_target_bitrate, "-pass", "1", "-an", "-f", "null", "NUL"})
+    local status, _, _ = exec({"ffmpeg", "-y", "-i", input_file, "-c:v", "libx264", "-b:v", formatted_target_bitrate, "-pass", "1", "-an", "-f", "null", "NUL"})
     if status > 0 then
         return false
     end
 
-    status, stdout, stderr = exec({"ffmpeg", "-y", "-i", input_file, "-c:v", "libx264", "-b:v", formatted_target_bitrate, "-pass", "2", "-c:a", "aac", "-b:a", string.format("%sk", settings.web.audio_target_bitrate), output_file})
+    status, _, _ = exec({"ffmpeg", "-y", "-i", input_file, "-c:v", "libx264", "-b:v", formatted_target_bitrate, "-pass", "2", "-c:a", "aac", "-b:a", string.format("%sk", settings.web.audio_target_bitrate), output_file})
     if status > 0 then
         return false
     end
@@ -119,7 +148,9 @@ function ffmpeg_resize(input_file, output_file)
 end
 
 function web_mark_pos()
-    mark_pos(true)
+    vars.used_web_mark_pos = true
+
+    mark_pos(vars.used_web_mark_pos)
 end
 
 function mark_pos(is_web)
@@ -179,13 +210,13 @@ function mark_pos(is_web)
         reset_pos()
 
         mp.set_property("keep-open", "no")
+        vars.used_web_mark_pos = false
 
         return
     end
 
     -- Reset vars
     reset_pos()
-
     mp.set_property("keep-open", "no")
 
     log(msg.info, string.format("Saved as %s.", output_name), 10)
