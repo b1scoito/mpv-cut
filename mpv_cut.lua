@@ -89,6 +89,8 @@ end
 
 -- #region main
 function ffmpeg_cut(time_start, time_end, input_file, output_file)
+    input_file = string.format("\"%s\"", input_file)
+
     if string.len(settings.ffmpeg_custom_parameters) > 0 and not vars.used_web_mark_pos then
         ffmpeg_custom_arguments = {}
         for substr in settings.ffmpeg_custom_parameters:gmatch("%S+") do
@@ -122,6 +124,8 @@ function ffmpeg_cut(time_start, time_end, input_file, output_file)
 end
 
 function ffmpeg_resize(input_file, output_file)
+    input_file = string.format("\"%s\"", input_file)
+
     local target_bitrate = (settings.web.video_target_file_size * 8192) / math.floor(vars.video_duration) -- Video bitrate
     target_bitrate = target_bitrate - settings.web.audio_target_bitrate -- Audio bitrate
 
