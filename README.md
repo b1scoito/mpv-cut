@@ -21,7 +21,7 @@ local settings = {
     key_mark_cut = "c",
     video_extension = "mp4",
 
-    -- shareable video settings
+    -- small video settings
     web = {
         key_mark_cut = "shift+c",
 
@@ -41,4 +41,3 @@ local settings = {
 
 #### Todo
 - [ ] Create a "custom arguments" variable for custom user-defined FFmpeg arguments to append to the original command.
-- [x] Finish the web file size feature.
