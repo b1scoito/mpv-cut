@@ -19,25 +19,26 @@ The settings can be changed by editing the [script](https://github.com/b1scoito/
 ```lua
 local settings = {
     key_mark_cut = "c",
-    web_key_mark_cut = "shift+c",
+    video_extension = "mp4",
 
-    -- output video extension
-    video_ext = "mp4",
+    -- shareable video settings
+    web = {
+        key_mark_cut = "shift+c",
 
-    -- web save settings
-    web_audio_target_bitrate = "128", -- kbps
-    web_video_target_file_size = "8"  -- mb
+        audio_target_bitrate = "128", -- kbps
+        video_target_file_size = "8"  -- mb
+    }
 }
 ```
 
 ### Further explanation
 
 - `key_mark_cut`: The key for cutting the video.
-- `web_key_mark_cut`: The key for cutting the video with a shareable web file size (todo).
-- `video_ext`: The output extension of the video.
-- `web_audio_target_bitrate`: Target audio bitrate for the web cut.
-- `web_video_target_file_size`: Target file size for the web cut.
+- `video_extension`: The output extension of the video.
+- `web.key_mark_cut`: The key for cutting the video with a shareable web file size (todo).
+- `web.audio_target_bitrate`: Target audio bitrate for the web cut.
+- `web.video_target_file_size`: Target file size for the web cut.
 
 #### Todo
 - [ ] Create a "custom arguments" variable for custom user-defined FFmpeg arguments to append to the original command.
-- [ ] Finish the web file size feature.
+- [x] Finish the web file size feature.
