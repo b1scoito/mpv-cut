@@ -38,6 +38,3 @@ local settings = {
 - `web.key_mark_cut`: The key for cutting the video with a shareable web file size (todo).
 - `web.audio_target_bitrate`: Target audio bitrate for the web cut.
 - `web.video_target_file_size`: Target file size for the web cut.
-
-#### Todo
-- [ ] Create a "custom arguments" variable for custom user-defined FFmpeg arguments to append to the original command.
