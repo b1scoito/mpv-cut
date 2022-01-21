@@ -90,6 +90,7 @@ end
 -- #region main
 function ffmpeg_cut(time_start, time_end, input_file, output_file)
     if string.len(settings.ffmpeg_custom_parameters) > 0 and not vars.used_web_mark_pos then
+        -- Best way I figured
         ffmpeg_custom_arguments = {}
         for substr in settings.ffmpeg_custom_parameters:gmatch("%S+") do
             table.insert(ffmpeg_custom_arguments, substr)
@@ -131,7 +132,7 @@ function ffmpeg_resize(input_file, output_file)
     target_bitrate = target_bitrate - settings.web.audio_target_bitrate -- Audio bitrate
 
     if target_bitrate < 0 then
-        log(msg.error, "target video bitrate is lower than 0! try making your target file size bigger.", 10)
+        log(msg.error, "target video bitrate is lower than 0!", 10)
         return false
     end
 
@@ -165,7 +166,7 @@ function mark_pos(is_web)
 
     if not vars.pos.start_pos then
         vars.pos.start_pos = current_pos
-        log(msg.info, string.format("Marked %ss as start position", to_timestamp(current_pos)), 3)
+        log(msg.info, string.format("Marked %s as start position", to_timestamp(current_pos)), 3)
         return
     end
 
@@ -179,7 +180,7 @@ function mark_pos(is_web)
 
     vars.pos.cut_duration = vars.pos.start_pos - vars.pos.end_pos
 
-    log(msg.info, string.format("Marked %ss as end position", to_timestamp(current_pos)), 3)
+    log(msg.info, string.format("Marked %s as end position", to_timestamp(current_pos)), 3)
 
     local output_name = string.format("%s-cut.%s", str_split(vars.filename, ".")[1], settings.video_extension)
     -- Cut
@@ -188,6 +189,8 @@ function mark_pos(is_web)
         reset_pos()
         return
     end
+
+    log(msg.info, "Encoding started, please wait for the save message.", 10)
 
     -- Resize video
     if is_web then
@@ -198,6 +201,8 @@ function mark_pos(is_web)
             reset_pos()
             return
         end
+
+        log(msg.info, "Encoding started, please wait for the save message.", 10)
 
         -- Find a better way to do this
         local status, err_msg = os.remove(output_name)
@@ -215,11 +220,11 @@ function mark_pos(is_web)
             log(msg.error, string.format("failed to delete: %s!", err_msg))
         end
 
-        log(msg.info, string.format("saved as %s.", output_name_resized), 10)
-        
+        log(msg.info, string.format("Saved as %s.", output_name_resized), 10)
+
         reset_pos()
         mp.set_property("keep-open", "no")
-        
+
         vars.used_web_mark_pos = false
 
         return
