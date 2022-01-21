@@ -30,7 +30,8 @@ local settings = {
         key_mark_cut = "shift+c",
 
         audio_target_bitrate = "128", -- kbps
-        video_target_file_size = "8"  -- mb
+        video_target_file_size = "8",  -- mb
+        video_target_scale = "1280:-1" -- https://trac.ffmpeg.org/wiki/Scaling everthing after "scale=" will be considered, keep "original" for no changes to the scaling
     }
 }
 ```
@@ -43,3 +44,4 @@ local settings = {
 - `web.key_mark_cut`: The key for cutting the video with a shareable web file size (todo).
 - `web.audio_target_bitrate`: Target audio bitrate for the web cut.
 - `web.video_target_file_size`: Target file size for the web cut.
+- `web.video_target_scale`: Target video scale (https://trac.ffmpeg.org/wiki/Scaling), keep "original" for no changes to the scaling.
