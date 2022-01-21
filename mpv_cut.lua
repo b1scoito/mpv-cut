@@ -24,13 +24,13 @@ local vars = {
     path = nil,
     filename = nil,
 
-    video_duration = nil,
-
     used_web_mark_pos = nil,
 
     pos = {
         start_pos = nil,
-        end_pos = nil
+        end_pos = nil,
+
+        cut_duration = nil
     }
 }
 -- #endregion
@@ -63,7 +63,7 @@ function reset_pos()
 end
 
 function exec(args)
-    log(msg.info, string.format("Executing %s", table.concat(args, " ")))
+    log(msg.info, string.format("executing command: %s", table.concat(args, " ")))
 
     local ret = mp.command_native({
         name = "subprocess",
@@ -73,7 +73,7 @@ function exec(args)
         playback_only = false
     })
 
-    log(msg.info, "Finished executing.")
+    log(msg.info, string.format("finished executing: %s", args[1]))
 
     return ret.status, ret.stdout, ret.stderr
 end
@@ -89,8 +89,6 @@ end
 
 -- #region main
 function ffmpeg_cut(time_start, time_end, input_file, output_file)
-    input_file = string.format("\"%s\"", input_file)
-
     if string.len(settings.ffmpeg_custom_parameters) > 0 and not vars.used_web_mark_pos then
         ffmpeg_custom_arguments = {}
         for substr in settings.ffmpeg_custom_parameters:gmatch("%S+") do
@@ -107,16 +105,18 @@ function ffmpeg_cut(time_start, time_end, input_file, output_file)
             table.insert(arr_start, value)
         end
 
-        local status, _, _ = exec(arr_start)
+        local status, stdout, stderr = exec(arr_start)
         if status > 0 then
+            log(msg.error, stderr:gsub("^%s*(.-)%s*$", "%1"))
             return false
         end
 
         return true
     end
 
-    local status, _, _ = exec({"ffmpeg", "-y", "-ss", time_start, "-to", time_end, "-i", input_file, "-c", "copy", output_file})
+    local status, stdout, stderr = exec({"ffmpeg", "-y", "-ss", time_start, "-to", time_end, "-i", input_file, "-c", "copy", output_file})
     if status > 0 then
+        log(msg.error, stderr:gsub("^%s*(.-)%s*$", "%1"))
         return false
     end
 
@@ -124,27 +124,30 @@ function ffmpeg_cut(time_start, time_end, input_file, output_file)
 end
 
 function ffmpeg_resize(input_file, output_file)
-    input_file = string.format("\"%s\"", input_file)
+    local cut_duration = math.abs(math.floor(vars.pos.cut_duration))
+    log(msg.info, string.format("cut duration: %s", cut_duration))
 
-    local target_bitrate = (settings.web.video_target_file_size * 8192) / math.floor(vars.video_duration) -- Video bitrate
+    local target_bitrate = (settings.web.video_target_file_size * 8192) / cut_duration -- Video bitrate
     target_bitrate = target_bitrate - settings.web.audio_target_bitrate -- Audio bitrate
 
     if target_bitrate < 0 then
-        log(msg.error, "Target video bitrate is lower than 0! Try making your target file size bigger.", 10)
+        log(msg.error, "target video bitrate is lower than 0! try making your target file size bigger.", 10)
         return false
     end
 
     local formatted_target_bitrate = string.format("%sk", math.floor(target_bitrate))
-    log(msg.info, string.format("Target video bitrate: %s.", formatted_target_bitrate))
+    log(msg.info, string.format("target video bitrate: %s.", formatted_target_bitrate))
 
     -- Double pass from https://trac.ffmpeg.org/wiki/Encode/H.264#twopass
-    local status, _, _ = exec({"ffmpeg", "-y", "-i", input_file, "-c:v", "libx264", "-b:v", formatted_target_bitrate, "-pass", "1", "-an", "-f", "null", "NUL"})
+    local status, stdout, stderr = exec({"ffmpeg", "-y", "-i", input_file, "-c:v", "libx264", "-b:v", formatted_target_bitrate, "-pass", "1", "-an", "-f", "rawvideo", "NUL"})
     if status > 0 then
+        log(msg.error, stderr:gsub("^%s*(.-)%s*$", "%1"))
         return false
     end
 
-    status, _, _ = exec({"ffmpeg", "-y", "-i", input_file, "-c:v", "libx264", "-b:v", formatted_target_bitrate, "-pass", "2", "-c:a", "aac", "-b:a", string.format("%sk", settings.web.audio_target_bitrate), output_file})
+    status, stdout, stderr = exec({"ffmpeg", "-y", "-i", input_file, "-c:v", "libx264", "-b:v", formatted_target_bitrate, "-pass", "2", "-c:a", "aac", "-b:a", string.format("%sk", settings.web.audio_target_bitrate), output_file})
     if status > 0 then
+        log(msg.error, stderr:gsub("^%s*(.-)%s*$", "%1"))
         return false
     end
 
@@ -162,24 +165,26 @@ function mark_pos(is_web)
 
     if not vars.pos.start_pos then
         vars.pos.start_pos = current_pos
-        log(msg.info, string.format("Marked %ss as start position", current_pos), 3)
+        log(msg.info, string.format("Marked %ss as start position", to_timestamp(current_pos)), 3)
         return
     end
 
     vars.pos.end_pos = current_pos
 
     if vars.pos.start_pos >= vars.pos.end_pos then
-        log(msg.error, string.format("Invalid time selected!", current_pos), 3)
+        log(msg.error, "Invalid time selected!", 3)
         reset_pos()
         return
     end
 
-    log(msg.info, string.format("Marked %ss as end position", current_pos), 3)
+    vars.pos.cut_duration = vars.pos.start_pos - vars.pos.end_pos
+
+    log(msg.info, string.format("Marked %ss as end position", to_timestamp(current_pos)), 3)
 
     local output_name = string.format("%s-cut.%s", str_split(vars.filename, ".")[1], settings.video_extension)
     -- Cut
     if not ffmpeg_cut(to_timestamp(vars.pos.start_pos), to_timestamp(vars.pos.end_pos), vars.path, output_name) then
-        log(msg.error, "Failed to execute FFmpeg cut!", 10)
+        log(msg.error, "[cut] failed to execute FFmpeg!", 10)
         reset_pos()
         return
     end
@@ -189,7 +194,7 @@ function mark_pos(is_web)
         local output_name_resized = string.format("%s-cut-resized.%s", str_split(vars.filename, ".")[1], settings.video_extension)
 
         if not ffmpeg_resize(output_name, output_name_resized) then
-            log(msg.error, "Failed to execute FFmpeg resize!", 10)
+            log(msg.error, "[resize] failed to execute ffmpeg!", 10)
             reset_pos()
             return
         end
@@ -197,23 +202,24 @@ function mark_pos(is_web)
         -- Find a better way to do this
         local status, err_msg = os.remove(output_name)
         if not status then
-            log(msg.error, string.format("Failed to delete: %s!", err_msg))
+            log(msg.error, string.format("failed to delete: %s!", err_msg))
         end
 
         status, err_msg = os.remove("ffmpeg2pass-0.log")
         if not status then
-            log(msg.error, string.format("Failed to delete: %s!", err_msg))
+            log(msg.error, string.format("failed to delete: %s!", err_msg))
         end
 
         status, err_msg = os.remove("ffmpeg2pass-0.log.mbtree")
         if not status then
-            log(msg.error, string.format("Failed to delete: %s!", err_msg))
+            log(msg.error, string.format("failed to delete: %s!", err_msg))
         end
 
-        log(msg.info, string.format("Saved as %s.", output_name_resized), 10)
+        log(msg.info, string.format("saved as %s.", output_name_resized), 10)
+        
         reset_pos()
-
         mp.set_property("keep-open", "no")
+        
         vars.used_web_mark_pos = false
 
         return
@@ -237,7 +243,7 @@ mp.register_event("file-loaded", function()
     mp.set_property("keep-open", "always")
 
     -- Populate variables
-    vars.path, vars.filename, vars.video_duration = path, filename, duration
+    vars.path, vars.filename = path, filename
 end)
 
 mp.add_key_binding(settings.key_mark_cut, "mark_pos", mark_pos)
