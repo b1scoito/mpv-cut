@@ -15,8 +15,8 @@ local settings = {
         -- small file settings
         key_mark_cut = "shift+c",
 
-        audio_target_bitrate = "128", -- kbps
-        video_target_file_size = "8",  -- mb
+        audio_target_bitrate = 128, -- kbps
+        video_target_file_size = 7.50,  -- mb, keeping this less than 8 since the process is not perfectly accurate.
         video_target_scale = "1280:-1" -- https://trac.ffmpeg.org/wiki/Scaling everthing after "scale=" will be considered, keep "original" for no changes to the scaling
     }
 }
@@ -50,12 +50,12 @@ function str_split(input, separator)
     return t
 end
 
-function to_timestamp(seconds)
-    local hrs = seconds / 3600
-    local mins = (seconds % 3600) / 60
-    local secs = seconds % 60
+function to_timestamp(time)
+    local hrs = time / 3600
+    local mins = (time % 3600) / 60
+    local secs = time % 60
 
-    return string.format("%02d:%02d:%02d", math.floor(hrs), math.floor(mins), math.floor(secs))
+    return string.format("%02d:%02d:%02d.%02d", math.floor(hrs), math.floor(mins), math.floor(secs), (time % 1) * 1000)
 end
 
 function reset_pos()
@@ -63,8 +63,8 @@ function reset_pos()
     vars.pos.end_pos = nil
 end
 
-function exec(args)
-    log(msg.info, string.format("executing command: %s", table.concat(args, " ")))
+function exec_native(args)
+    log(msg.info, string.format("Executing command: %s", table.concat(args, " ")))
 
     local ret = mp.command_native({
         name = "subprocess",
@@ -74,9 +74,33 @@ function exec(args)
         playback_only = false
     })
 
-    log(msg.info, string.format("finished executing: %s", args[1]))
+    log(msg.info, string.format("Finished executing %s.", args[1]))
 
     return ret.status, ret.stdout, ret.stderr
+end
+
+function exec_async(args)
+    log(msg.info, string.format("Executing command: %s", table.concat(args, " ")))
+
+    local ret_val = false
+    mp.command_native_async({
+        name = "subprocess",
+        args = args,
+        capture_stdout = true,
+        capture_stderr = true,
+        playback_only = false
+    }, function(res, val, err)
+        if val.status > 0 then
+            local err = val.stderr:gsub("^%s*(.-)%s*$", "%1")
+            log(msg.error, err, nil, err)
+            ret_val = false
+        else
+            log(msg.info, string.format("Finished executing %s.", args[1]))
+            ret_val = true
+        end
+    end)
+
+    return ret_val
 end
 
 function log(type, fmt, delay, log_msg)
@@ -87,13 +111,13 @@ function log(type, fmt, delay, log_msg)
     if log_msg then
         local file_object = io.open("mpv-cut.log", 'a')
 
-	    if not file_object then
-		    log(msg.error, "Unable to open file for appending!")
-		    return
-	    end
+        if not file_object then
+            log(msg.error, "Unable to open file for appending!")
+            return
+        end
 
-	    file_object:write(log_msg .. '\n')
-	    file_object:close()
+        file_object:write(log_msg .. '\n')
+        file_object:close()
     end
 
     type(fmt)
@@ -108,18 +132,18 @@ function ffmpeg_cut(time_start, time_end, input_file, output_file)
         for substr in settings.ffmpeg_custom_parameters:gmatch("%S+") do
             table.insert(ffmpeg_custom_arguments, substr)
         end
-    
-        local arr_start = {"ffmpeg", "-y", "-i", input_file}
+
+        local arr_start = {"ffmpeg", "-async", "1", "-y", "-i", input_file}
         for _, value in pairs(ffmpeg_custom_arguments) do
             table.insert(arr_start, value)
         end
-    
+
         local arr_end = {"-ss", time_start, "-to", time_end, output_file}
         for _, value in pairs(arr_end) do
             table.insert(arr_start, value)
         end
 
-        local status, stdout, stderr = exec(arr_start)
+        local status, stdout, stderr = exec_native(arr_start)
         if status > 0 then
             stderr = stderr:gsub("^%s*(.-)%s*$", "%1")
             log(msg.error, stderr, nil, stderr)
@@ -129,7 +153,7 @@ function ffmpeg_cut(time_start, time_end, input_file, output_file)
         return true
     end
 
-    local status, stdout, stderr = exec({"ffmpeg", "-y", "-ss", time_start, "-to", time_end, "-i", input_file, "-c", "copy", output_file})
+    local status, stdout, stderr = exec_native({"ffmpeg", "-async", "1", "-y", "-ss", time_start, "-to", time_end, "-i", input_file, "-c", "copy", output_file})
     if status > 0 then
         stderr = stderr:gsub("^%s*(.-)%s*$", "%1")
         log(msg.error, stderr, nil, stderr)
@@ -141,18 +165,18 @@ end
 
 function ffmpeg_resize(input_file, output_file)
     local cut_duration = math.abs(math.floor(vars.pos.cut_duration))
-    log(msg.info, string.format("cut duration: %s", cut_duration))
+    log(msg.info, string.format("Cut duration: %s", cut_duration))
 
     local target_bitrate = (settings.web.video_target_file_size * 8192) / cut_duration -- Video bitrate
     target_bitrate = target_bitrate - settings.web.audio_target_bitrate -- Audio bitrate
 
     if target_bitrate < 0 then
-        log(msg.error, "target video bitrate is lower than 0!", 10)
+        log(msg.error, "Target video bitrate is lower than 0!", 10)
         return false
     end
 
     local formatted_target_bitrate = string.format("%sk", math.floor(target_bitrate))
-    log(msg.info, string.format("target video bitrate: %s.", formatted_target_bitrate))
+    log(msg.info, string.format("Target video bitrate: %s", formatted_target_bitrate))
 
     local vf, video_target_scale = "-vf", "scale=iw:ih"
     if settings.web.video_target_scale ~= "original" then
@@ -160,14 +184,14 @@ function ffmpeg_resize(input_file, output_file)
     end
 
     -- Double pass from https://trac.ffmpeg.org/wiki/Encode/H.264#twopass
-    local status, stdout, stderr = exec({"ffmpeg", "-y", "-i", input_file, "-c:v", "libx264", vf, video_target_scale, "-b:v", formatted_target_bitrate, "-pass", "1", "-an", "-f", "rawvideo", "NUL"})
+    local status, stdout, stderr = exec_native({"ffmpeg", "-async", "1", "-y", "-i", input_file, "-c:v", "libx264", vf, video_target_scale, "-b:v", formatted_target_bitrate, "-pass", "1", "-an", "-f", "rawvideo", "NUL"})
     if status > 0 then
         stderr = stderr:gsub("^%s*(.-)%s*$", "%1")
         log(msg.error, stderr, nil, stderr)
         return false
     end
 
-    status, stdout, stderr = exec({"ffmpeg", "-y", "-i", input_file, "-c:v", "libx264", vf, video_target_scale, "-b:v", formatted_target_bitrate, "-pass", "2", "-c:a", "aac", "-b:a", string.format("%sk", settings.web.audio_target_bitrate), output_file})
+    status, stdout, stderr = exec_native({"ffmpeg", "-async", "1", "-y", "-i", input_file, "-c:v", "libx264", vf, video_target_scale, "-b:v", formatted_target_bitrate, "-pass", "2", "-c:a", "aac", "-b:a", string.format("%sk", settings.web.audio_target_bitrate), output_file})
     if status > 0 then
         stderr = stderr:gsub("^%s*(.-)%s*$", "%1")
         log(msg.error, stderr, nil, stderr)
@@ -184,6 +208,8 @@ end
 
 function mark_pos(is_web)
     local current_pos = mp.get_property_number("time-pos")
+
+    msg.info(current_pos)
 
     if not vars.pos.start_pos then
         vars.pos.start_pos = current_pos
@@ -205,11 +231,9 @@ function mark_pos(is_web)
 
     local output_name = string.format("%s-cut.%s", str_split(vars.filename, ".")[1], settings.video_extension)
 
-    log(msg.info, "Encoding started, please wait for the save message.", 10)
-
     -- Cut
     if not ffmpeg_cut(to_timestamp(vars.pos.start_pos), to_timestamp(vars.pos.end_pos), vars.path, output_name) then
-        log(msg.error, "[cut] failed to execute ffmpeg, check log for details", 10)
+        log(msg.error, "Failed to execute ffmpeg! Check log for details.", 10)
         reset_pos()
         return
     end
@@ -218,10 +242,10 @@ function mark_pos(is_web)
     if is_web then
         local output_name_resized = string.format("%s-cut-resized.%s", str_split(vars.filename, ".")[1], settings.video_extension)
 
-        log(msg.info, "Encoding started, please wait for the save message.", 10)
+        log(msg.info, "Encoding started, please do not close", 10)
 
         if not ffmpeg_resize(output_name, output_name_resized) then
-            log(msg.error, "[resize] failed to execute ffmpeg, check log for details", 10)
+            log(msg.error, "Failed to execute ffmpeg on resizing! Check log for details.", 10)
             reset_pos()
             return
         end
@@ -229,20 +253,20 @@ function mark_pos(is_web)
         -- Find a better way to do this
         local status, err_msg = os.remove(output_name)
         if not status then
-            log(msg.error, string.format("failed to delete: %s!", err_msg))
+            log(msg.error, string.format("Failed to delete: %s!", err_msg))
         end
 
         status, err_msg = os.remove("ffmpeg2pass-0.log")
         if not status then
-            log(msg.error, string.format("failed to delete: %s!", err_msg))
+            log(msg.error, string.format("Failed to delete: %s!", err_msg))
         end
 
         status, err_msg = os.remove("ffmpeg2pass-0.log.mbtree")
         if not status then
-            log(msg.error, string.format("failed to delete: %s!", err_msg))
+            log(msg.error, string.format("Failed to delete: %s!", err_msg))
         end
 
-        log(msg.info, string.format("Saved as %s.", output_name_resized), 10)
+        log(msg.info, string.format("Saved as %s", output_name_resized), 10)
 
         reset_pos()
         mp.set_property("keep-open", "no")
@@ -255,7 +279,7 @@ function mark_pos(is_web)
     reset_pos()
     mp.set_property("keep-open", "no")
 
-    log(msg.info, string.format("Saved as %s.", output_name), 10)
+    log(msg.info, string.format("Saved as %s", output_name), 10)
 
 end
 -- #endregion
