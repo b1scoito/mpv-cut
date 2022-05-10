@@ -24,6 +24,7 @@ local settings = {
 local vars = {
     path = nil,
     filename = nil,
+    only_filename = nil,
 
     is_web_mark_pos = nil,
 
@@ -153,7 +154,7 @@ function ffmpeg_cut(time_start, time_end, input_file, output_file)
         return true
     end
 
-    local status, stdout, stderr = exec_native({"ffmpeg", "-async", "1", "-y", "-ss", time_start, "-to", time_end, "-i", input_file, "-c", "copy", output_file})
+    local status, stdout, stderr = exec_native({"ffmpeg", "-async", "1", "-y", "-ss", time_start, "-to", time_end, "-i", input_file, "-c:v", "copy", "-c:a", "aac", output_file})
     if status > 0 then
         stderr = stderr:gsub("^%s*(.-)%s*$", "%1")
         log(msg.error, stderr, nil, stderr)
@@ -229,7 +230,7 @@ function mark_pos(is_web)
 
     log(msg.info, string.format("Marked %s as end position", to_timestamp(current_pos)), 3)
 
-    local output_name = string.format("%s-cut.%s", str_split(vars.filename, ".")[1], settings.video_extension)
+    local output_name = string.format("%s cut.%s", vars.only_filename:gsub("%" .. string.format(".%s", settings.video_extension), ""), settings.video_extension)
 
     -- Cut
     if not ffmpeg_cut(to_timestamp(vars.pos.start_pos), to_timestamp(vars.pos.end_pos), vars.path, output_name) then
@@ -240,7 +241,7 @@ function mark_pos(is_web)
 
     -- Resize video
     if is_web then
-        local output_name_resized = string.format("%s-cut-resized.%s", str_split(vars.filename, ".")[1], settings.video_extension)
+        local output_name_resized = string.format("%s cutr.%s", vars.only_filename:gsub("%" .. string.format(".%s", settings.video_extension), ""), settings.video_extension)
 
         log(msg.info, "Encoding started, please do not close", 10)
 
@@ -286,13 +287,14 @@ end
 
 -- #region events
 mp.register_event("file-loaded", function()
+    local only_filename = mp.get_property("filename")
     local path = mp.get_property("path")
     local _, filename = utils.split_path(path)
 
     mp.set_property("keep-open", "always")
 
     -- Populate variables
-    vars.path, vars.filename = path, filename
+    vars.path, vars.filename, vars.only_filename = path, filename, only_filename
 end)
 
 mp.add_key_binding(settings.key_mark_cut, "mark_pos", mark_pos)
