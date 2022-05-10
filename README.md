@@ -1,6 +1,10 @@
 # mpv-cut
 A video cutting/clipping/slicing script for [mpv](https://mpv.io/)
 
+## Features
+- Can generate a small file with a pre-defined size, resolution and audio bitrate using `shift` + `c`.
+- You're able to input custom FFmpeg parameters in the normal cutting process using `c`
+
 ## Installation
 ### Linux
 Place it inside the Linux mpv scripts folder normally on: `~/.config/mpv/scripts`, and install the FFmpeg package if not already installed.
