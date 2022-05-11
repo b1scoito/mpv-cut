@@ -154,7 +154,7 @@ function ffmpeg_cut(time_start, time_end, input_file, output_file)
         return true
     end
 
-    local status, stdout, stderr = exec_native({"ffmpeg", "-async", "1", "-y", "-ss", time_start, "-to", time_end, "-i", input_file, "-c:v", "copy", "-c:a", "aac", output_file})
+    local status, stdout, stderr = exec_native({"ffmpeg", "-async", "1", "-y", "-ss", time_start, "-to", time_end, "-i", input_file, "-c:v", "copy", "-c:a", "aac", "-b:a", "320k", output_file})
     if status > 0 then
         stderr = stderr:gsub("^%s*(.-)%s*$", "%1")
         log(msg.error, stderr, nil, stderr)
