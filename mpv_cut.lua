@@ -7,7 +7,7 @@ utils = require("mp.utils")
 local settings = {
     key_mark_cut = "c",
     video_extension = "mp4",
-	custom_output_path = "",
+    custom_output_path = "",
 
     -- if you want faster cutting, leave this blank
     ffmpeg_custom_parameters = "",
