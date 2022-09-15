@@ -231,12 +231,12 @@ function mark_pos(is_web)
 
     log(msg.info, string.format("Marked %s as end position", to_timestamp(current_pos)), 3)
 
-	local output_name = ""
-	if string.len(settings.custom_output_path) > 0 then 
-		output_name = string.format("%s\\%s cut.%s", settings.custom_output_path, vars.only_filename:gsub("%" .. string.format(".%s", settings.video_extension), ""), settings.video_extension)
-	else 
-		output_name = string.format("%s cut.%s", vars.only_filename:gsub("%" .. string.format(".%s", settings.video_extension), ""), settings.video_extension)
-	end
+    local output_name = ""
+    if string.len(settings.custom_output_path) > 0 then 
+	    output_name = string.format("%s\\%s cut.%s", settings.custom_output_path, vars.only_filename:gsub("%" .. string.format(".%s", settings.video_extension), ""), settings.video_extension)
+    else 
+	    output_name = string.format("%s cut.%s", vars.only_filename:gsub("%" .. string.format(".%s", settings.video_extension), ""), settings.video_extension)
+    end
 
     -- Cut
     if not ffmpeg_cut(to_timestamp(vars.pos.start_pos), to_timestamp(vars.pos.end_pos), vars.path, output_name) then
@@ -247,12 +247,12 @@ function mark_pos(is_web)
 
     -- Resize video
     if is_web then
-		local output_name_resized = ""
-		if string.len(settings.custom_output_path) > 0 then 
-			output_name_resized = string.format("%s\\%s cutr.%s", settings.custom_output_path, vars.only_filename:gsub("%" .. string.format(".%s", settings.video_extension), ""), settings.video_extension)
-		else 
-			output_name_resized = string.format("%s cutr.%s", vars.only_filename:gsub("%" .. string.format(".%s", settings.video_extension), ""), settings.video_extension)
-		end
+	    local output_name_resized = ""
+	    if string.len(settings.custom_output_path) > 0 then 
+		    output_name_resized = string.format("%s\\%s cutr.%s", settings.custom_output_path, vars.only_filename:gsub("%" .. string.format(".%s", settings.video_extension), ""), settings.video_extension)
+	    else 
+		    output_name_resized = string.format("%s cutr.%s", vars.only_filename:gsub("%" .. string.format(".%s", settings.video_extension), ""), settings.video_extension)
+	    end
 
         log(msg.info, "Encoding started, please do not close", 10)
 
